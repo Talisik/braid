@@ -1,30 +1,56 @@
 {
-  "name": "web-navigator-backend",
+  "name": "braid-video-downloader",
   "version": "1.0.0",
-  "description": "TypeScript backend package for web navigation and video processing",
+  "description": "A powerful TypeScript library for downloading videos from web pages, including M3U8/HLS streams, with browser automation and intelligent stream detection",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "braid": "dist/cli.js"
+  },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "LICENSE"
+  ],
   "keywords": [
+    "video-downloader",
+    "m3u8",
+    "hls",
+    "stream-downloader",
     "web-scraping",
     "video-processing",
     "playwright",
-    "m3u8"
+    "browser-automation",
+    "typescript",
+    "ffmpeg",
+    "video-streaming"
   ],
-  "author": "",
-  "license": "ISC",
+  "author": "7Gen",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/braid-video-downloader.git"
+  },
+  "homepage": "https://github.com/yourusername/braid-video-downloader#readme",
+  "bugs": {
+    "url": "https://github.com/yourusername/braid-video-downloader/issues"
+  },
   "scripts": {
-    "build": "tsc",
+    "build": "npm run clean && tsc",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
     "codegen": "playwright codegen",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "prepublishOnly": "npm run build",
+    "postinstall": "playwright install firefox"
   },
   "dependencies": {
     "@renmu/m3u8-downloader": "^0.4.0",
     "axios": "^1.7.0",
+    "commander": "^12.1.0",
     "fluent-ffmpeg": "^2.1.3",
     "m3u8-parser": "^7.2.0",
     "playwright": "^1.55.0",
