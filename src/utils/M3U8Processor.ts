@@ -876,9 +876,9 @@ export class M3U8Processor {
         // Try browser approach first (works better with CDN restrictions)
         playlist = await this.parsePlaylistWithBrowser(m3u8Url, browserPage);
         if (playlist) {
-          this.logger.info('✅ Successfully parsed M3U8 playlist via browser');
+          this.logger.info('Successfully parsed M3U8 playlist via browser');
         } else {
-          this.logger.warn('🌐 Browser M3U8 fetch failed, trying direct HTTP...');
+          this.logger.warn('Browser M3U8 fetch failed, trying direct HTTP...');
         }
       }
       
@@ -886,41 +886,38 @@ export class M3U8Processor {
         // Fallback to direct HTTP (like Python)
         playlist = await this.parsePlaylist(m3u8Url);
         if (!playlist) {
-          this.logger.error('❌ Failed to parse M3U8 playlist with both browser and direct HTTP');
+          this.logger.error('Failed to parse M3U8 playlist with both browser and direct HTTP');
           return false;
         } else {
-          this.logger.info('✅ Successfully parsed M3U8 playlist via direct HTTP');
+          this.logger.info('Successfully parsed M3U8 playlist via direct HTTP');
         }
       }
     
       // Step 2: Handle master playlist if needed
       let finalPlaylist = playlist;
       if (playlist.playlists && playlist.playlists.length > 0) {
-        this.logger.info('🎯 This appears to be a master playlist with multiple qualities');
+        this.logger.info('This appears to be a master playlist with multiple qualities');
         const selectedUrl = this.selectBestQuality(playlist, m3u8Url);
         
         if (!selectedUrl) {
           return false;
         }
         
-        this.logger.info(`🎯 Selected quality URL: ${selectedUrl}`);
+        this.logger.info(`Selected quality URL: ${selectedUrl}`);
         const selectedPlaylist = await this.parsePlaylist(selectedUrl);
         if (!selectedPlaylist) {
           return false;
         }
         finalPlaylist = selectedPlaylist;
       }
-      
-      // Step 3: Download segments - Use Python approach (direct HTTP with session)
-      // After parsing M3U8, always use HTTP requests like Python requests.Session
-      this.logger.info('🐍 Using Python-like approach: downloading segments via direct HTTP with session headers...');
+
       
       const segmentSuccess = await this.downloadSegments(finalPlaylist, m3u8Url, this.config.maxWorkers || 4);
       if (!segmentSuccess) {
-        this.logger.error('❌ Failed to download segments via direct HTTP');
+        this.logger.error('Failed to download segments via direct HTTP');
         return false;
       } else {
-        this.logger.info('✅ Successfully downloaded segments via direct HTTP (like Python)');
+        this.logger.info('Successfully downloaded segments via direct HTTP (like Python)');
       }
       
       // Step 4: Convert to MP4
@@ -928,12 +925,12 @@ export class M3U8Processor {
         return false;
       }
       
-      this.logger.info(`✅ Download completed successfully: ${fullPath}`);
+      this.logger.info(`Download completed successfully: ${fullPath}`);
       return true;
 
       
     } catch (error) {
-      this.logger.error(`❌ M3U8 processing failed: ${error}`);
+      this.logger.error(`M3U8 processing failed: ${error}`);
       return false;
     } finally {
       this.cleanup();
