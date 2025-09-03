@@ -10,7 +10,8 @@
   "files": [
     "dist/**/*",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "package.json"
   ],
   "keywords": [
     "video-downloader",
