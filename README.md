@@ -65,6 +65,12 @@ braid download "https://example.com/video" --browser firefox
 braid download "https://example.com/video" --workers 8
 ```
 
+## Electron Compatibility
+
+✅ **Fully compatible with Electron applications!**
+
+This package includes automatic handling for Electron-specific issues like module resolution and FFmpeg path detection. See [ELECTRON.md](./ELECTRON.md) for detailed integration guide.
+
 ## API Reference
 
 ### VideoDownloader

@@ -6,7 +6,15 @@ import { Logger } from 'winston';
 import { createLogger } from './Logger';
 import { M3U8ProcessorConfig } from '../types';
 import * as cliProgress from 'cli-progress';
-import ffmpegStatic from 'ffmpeg-static';
+// Import ffmpeg-static with error handling for Electron environments
+let ffmpegStatic: string | null = null;
+try {
+  // This may fail in Electron environments due to package.json resolution issues
+  ffmpegStatic = require('ffmpeg-static');
+} catch (error) {
+  // Fallback to system ffmpeg in Electron or other problematic environments
+  console.warn('Warning: ffmpeg-static could not be loaded (common in Electron apps). Using system ffmpeg.');
+}
 
 
 // Direct TypeScript port of Python m3u8_downloader.py

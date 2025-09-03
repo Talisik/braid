@@ -11,7 +11,8 @@
     "dist/**/*",
     "README.md",
     "LICENSE",
-    "package.json"
+    "package.json",
+    "ELECTRON.md"
   ],
   "keywords": [
     "video-downloader",
@@ -24,7 +25,8 @@
     "browser-automation",
     "typescript",
     "ffmpeg",
-    "video-streaming"
+    "video-streaming",
+    "electron"
   ],
   "author": "7Gen",
   "license": "MIT",
