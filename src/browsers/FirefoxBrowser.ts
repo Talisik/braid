@@ -15,7 +15,7 @@ export class FirefoxBrowser {
   async launch(config: BrowserConfig = {}): Promise<void> {
     try {
       this.browser = await firefox.launch({
-        headless: config.headless ?? false,
+        headless: config.headless ?? true,
         // Use minimal args - custom args were causing context closure issues
         args: [],
       });

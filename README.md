@@ -23,32 +23,9 @@ npm install braid-video-downloader
 ### Prerequisites
 
 - **Node.js** 16+ 
-- **FFmpeg** (for video conversion)
 - **curl** (for reliable downloads)
 
-#### Installing FFmpeg
-
-**Windows:**
-```bash
-# Using chocolatey
-choco install ffmpeg
-
-# Or download from https://ffmpeg.org/download.html
-```
-
-**macOS:**
-```bash
-brew install ffmpeg
-```
-
-**Linux:**
-```bash
-# Ubuntu/Debian
-sudo apt update && sudo apt install ffmpeg
-
-# CentOS/RHEL
-sudo yum install ffmpeg
-```
+> **Note:** FFmpeg is now included automatically! No manual installation required.
 
 ## Quick Start
 
@@ -344,10 +321,10 @@ try {
 
 ### Common Issues
 
-1. **FFmpeg not found**: Ensure FFmpeg is installed and available in PATH
-2. **Browser launch fails**: Run `npx playwright install` to install browser binaries
-3. **Network errors**: Some sites require specific headers - check browser dev tools
-4. **Slow downloads**: Increase `maxWorkers` but be mindful of server limits
+1. **Browser launch fails**: Run `npx playwright install` to install browser binaries
+2. **Network errors**: Some sites require specific headers - check browser dev tools
+3. **Slow downloads**: Increase `maxWorkers` but be mindful of server limits
+4. **Progress bar issues**: Progress bar requires terminal support - disable with `--quiet` flag if needed
 
 ### Debug Mode
 

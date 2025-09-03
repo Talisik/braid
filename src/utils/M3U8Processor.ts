@@ -5,6 +5,8 @@ import { spawn, execSync } from 'child_process';
 import { Logger } from 'winston';
 import { createLogger } from './Logger';
 import { M3U8ProcessorConfig } from '../types';
+import * as cliProgress from 'cli-progress';
+import ffmpegStatic from 'ffmpeg-static';
 
 
 // Direct TypeScript port of Python m3u8_downloader.py
@@ -73,8 +75,7 @@ class SimpleDownloader {
       // Add URL and output
       curlArgs.push('-o', outputPath, url);
 
-      this.logger?.info(`📡 Downloading with curl: ${url}`);
-      this.logger?.info(`📋 Headers: ${Object.keys(allHeaders).join(', ')}`);
+      // Silent mode - don't log to avoid interfering with progress bar
 
       // Execute curl using spawn (avoids shell parsing issues)
       const result = await new Promise<{ success: boolean; error?: string }>((resolve) => {
@@ -108,21 +109,21 @@ class SimpleDownloader {
       });
 
       if (!result.success) {
-        this.logger?.error(`❌ Curl failed: ${result.error}`);
+        // Don't log curl errors to avoid interfering with progress bar
         return false;
       }
 
       // Check if file was created and has content
       if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0) {
-        this.logger?.info(`✅ Successfully downloaded: ${outputPath} (${fs.statSync(outputPath).size} bytes)`);
+        // Don't log individual successes to avoid interfering with progress bar
         return true;
       } else {
-        this.logger?.error(`❌ Download failed: File not created or empty`);
+        // Don't log individual failures to avoid interfering with progress bar
         return false;
       }
 
     } catch (error: any) {
-      this.logger?.error(`❌ Curl download failed: ${error.message}`);
+      // Don't log curl errors to avoid interfering with progress bar
       return false;
     }
   }
@@ -160,6 +161,11 @@ export class M3U8Processor {
   private tempDir: string | null = null;
   private segmentFiles: string[] = [];
   private config: M3U8ProcessorConfig;
+  private progressBar: cliProgress.SingleBar | null = null;
+  private progressUpdateLock: boolean = false;
+  private completedSegments: number = 0;
+  private totalSegments: number = 0;
+  private downloadStartTime: number = 0;
 
   constructor(config: M3U8ProcessorConfig = {}) {
     this.logger = createLogger('M3U8Processor');
@@ -168,7 +174,7 @@ export class M3U8Processor {
       maxWorkers: config.maxWorkers || 4,
       timeout: config.timeout || 30000, // Python default timeout
       retries: config.retries || 3,
-      ffmpegPath: config.ffmpegPath || 'ffmpeg',
+      ffmpegPath: config.ffmpegPath || ffmpegStatic || 'ffmpeg',
       segmentTimeout: config.segmentTimeout || 30000,
     };
 
@@ -448,6 +454,108 @@ export class M3U8Processor {
   }
 
   /**
+   * Initialize progress tracking with single updating line
+   */
+  private initializeProgressBar(totalSegments: number): void {
+    // Stop any existing progress bar first
+    this.stopProgressBar();
+    
+    // Initialize the progress display
+    this.updateProgressDisplay(0, totalSegments, '0.0', '0.0');
+  }
+
+  /**
+   * Update progress display with single overwriting line
+   */
+  private updateProgressDisplay(completed: number, total: number, speed: string, percentage: string): void {
+    // Create a visual progress bar
+    const barWidth = 40;
+    const filledWidth = Math.round((completed / total) * barWidth);
+    const emptyWidth = barWidth - filledWidth;
+    const bar = '█'.repeat(filledWidth) + '░'.repeat(emptyWidth);
+    
+    // Calculate ETA
+    const speedNum = parseFloat(speed);
+    const remainingSegments = total - completed;
+    const etaSeconds = speedNum > 0 ? Math.round(remainingSegments / speedNum) : 0;
+    const eta = etaSeconds > 0 ? `${etaSeconds}s` : 'N/A';
+    
+    // Create the progress line with padding to clear previous content
+    const progressLine = `📥 Downloading |${bar}| ${percentage}% || ${completed}/${total} segments || ETA: ${eta} || Speed: ${speed} seg/s`;
+    const paddedLine = progressLine.padEnd(120, ' '); // Pad to 120 chars to clear any leftover text
+    
+    // Clear line and write new content
+    process.stdout.write(`\r${paddedLine}\r${progressLine}`);
+    
+    // Add newline only when complete
+    if (completed === total) {
+      process.stdout.write('\n');
+    }
+  }
+
+  /**
+   * Increment completed segments counter and log progress periodically
+   */
+  private incrementProgress(): void {
+    if (this.progressUpdateLock) {
+      return;
+    }
+    
+    this.progressUpdateLock = true;
+    
+    try {
+      this.completedSegments++;
+      const elapsed = (Date.now() - this.downloadStartTime) / 1000;
+      const speed = elapsed > 0 ? (this.completedSegments / elapsed).toFixed(1) : '0.0';
+      const percentage = ((this.completedSegments / this.totalSegments) * 100).toFixed(1);
+      
+      // Update progress bar that overwrites itself
+      this.updateProgressDisplay(this.completedSegments, this.totalSegments, speed, percentage);
+    } catch (error) {
+      this.logger.debug(`Progress update error: ${error}`);
+    } finally {
+      this.progressUpdateLock = false;
+    }
+  }
+
+  /**
+   * Update progress bar with current status (thread-safe with simple locking)
+   */
+  private updateProgressBar(current: number, total: number, speed?: string): void {
+    if (this.progressUpdateLock || !this.progressBar) {
+      return; // Skip if already updating or no progress bar
+    }
+    
+    if (this.progressBar && !this.progressBar.isActive) {
+      return; // Don't update if progress bar is stopped
+    }
+    
+    this.progressUpdateLock = true;
+    
+    try {
+      if (this.progressBar) {
+        this.progressBar.update(current, {
+          speed: speed || "N/A"
+        });
+      }
+    } catch (error) {
+      // Ignore progress bar update errors to prevent crashes
+      this.logger.debug(`Progress bar update error: ${error}`);
+    } finally {
+      this.progressUpdateLock = false;
+    }
+  }
+
+  /**
+   * Stop and cleanup progress tracking (safe)
+   */
+  private stopProgressBar(): void {
+    // No visual progress bar to stop, just reset counters
+    this.progressBar = null;
+    this.progressUpdateLock = false;
+  }
+
+  /**
    * Download video segments using curl - Much more reliable than custom HTTP
    */
   private async downloadSegments(
@@ -463,20 +571,28 @@ export class M3U8Processor {
     
     // Create temporary directory exactly like Python
     this.tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'm3u8_download_'));
-    this.logger.info(`📥 Downloading ${playlist.segments.length} segments using curl...`);
+    
+    // Initialize progress tracking
+    this.totalSegments = playlist.segments.length;
+    this.completedSegments = 0;
+    this.downloadStartTime = Date.now();
+    
+    this.logger.info(`📥 Starting download of ${this.totalSegments} segments using curl...`);
+    
+    // Initialize progress bar
+    this.initializeProgressBar(this.totalSegments);
     
     let successCount = 0;
-    const totalSegments = playlist.segments.length;
     
-    // Download function for a single segment using curl with 5x retry
+    // Download function for a single segment using curl with 10x retry
     const downloadSegment = async (segment: Segment, index: number): Promise<boolean> => {
-      const maxRetries = 5;
+      const maxRetries = 10;
       const segmentUrl = this.resolveUrl(segment.uri, baseUrl);
       const segmentFile = path.join(this.tempDir!, `segment_${index.toString().padStart(5, '0')}.ts`);
       
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-          this.logger.info(`📥 Downloading segment ${index + 1}/${totalSegments} (attempt ${attempt}/${maxRetries}): ${segment.uri}`);
+          // Don't log individual downloads to avoid interfering with progress bar
           
           // Use curl to download segment
           const success = await this.downloader.downloadFile(segmentUrl, segmentFile);
@@ -485,35 +601,33 @@ export class M3U8Processor {
             this.segmentFiles.push(segmentFile);
             successCount++;
             
+            // Update progress bar atomically
+            this.incrementProgress();
+            
             // Progress callback like Python tqdm
             if (progressCallback) {
-              progressCallback(successCount, totalSegments);
+              progressCallback(successCount, this.totalSegments);
             }
             
-            this.logger.info(`✅ Downloaded segment ${index + 1}/${totalSegments} on attempt ${attempt} (${fs.statSync(segmentFile).size} bytes)`);
             return true;
           } else {
-            this.logger.warn(`❌ Attempt ${attempt}/${maxRetries} failed for segment ${index + 1}/${totalSegments}`);
-            
             if (attempt < maxRetries) {
-              const delay = attempt * 500; // Reduced delays: 500ms, 1s, 1.5s, 2s
-              this.logger.info(`⏳ Waiting ${delay}ms before retry...`);
+              const delay = Math.min(attempt * 300, 3000); // Progressive delays: 300ms, 600ms, 900ms... max 3s
               await new Promise(resolve => setTimeout(resolve, delay));
             }
           }
           
         } catch (error) {
-          this.logger.warn(`❌ Attempt ${attempt}/${maxRetries} error for segment ${index}: ${error}`);
+          // Don't log retry attempts to avoid interfering with progress bar
           
           if (attempt < maxRetries) {
-            const delay = attempt * 500; // Reduced delays: 500ms, 1s, 1.5s, 2s
-            this.logger.info(`⏳ Waiting ${delay}ms before retry...`);
+            const delay = Math.min(attempt * 300, 3000); // Progressive delays: 300ms, 600ms, 900ms... max 3s
             await new Promise(resolve => setTimeout(resolve, delay));
           }
         }
       }
       
-      this.logger.error(`❌ Failed to download segment ${index + 1}/${totalSegments} after ${maxRetries} attempts`);
+      // Don't log final failure to avoid interfering with progress bar
       return false;
     };
     
@@ -546,20 +660,28 @@ export class M3U8Processor {
     // Wait for all downloads like Python
     await Promise.all(downloadPromises);
     
-    this.logger.info(`📥 Download summary: ${successCount}/${totalSegments} segments successful`);
+    // Stop progress bar and show summary
+    this.stopProgressBar();
+    
+    const totalTime = (Date.now() - this.downloadStartTime) / 1000;
+    const avgSpeed = totalTime > 0 ? (successCount / totalTime).toFixed(1) : 'N/A';
+    
+    // Clear the progress line and show completion message
+    process.stdout.write('\r' + ' '.repeat(100) + '\r'); // Clear the line
+    this.logger.info(`📥 Download completed: ${successCount}/${this.totalSegments} segments successful in ${totalTime.toFixed(1)}s (avg: ${avgSpeed} seg/s)`);
     
     if (successCount === 0) {
-      this.logger.error('❌ No segments were downloaded successfully');
+      this.logger.error('No segments were downloaded successfully');
       return false;
     }
     
         // Accept partial success like Python (at least 80% of segments)
-    const successRate = successCount / totalSegments;
+    const successRate = successCount / this.totalSegments;
     if (successRate < 0.8) {
-      this.logger.warn(`⚠️  Partial success: ${(successRate * 100).toFixed(1)}% - will try curl fallback`);
+      this.logger.warn(`Partial success: ${(successRate * 100).toFixed(1)}% - will try curl fallback`);
       return false; // Force fallback to curl method
     } else {
-      this.logger.info(`✅ Successfully downloaded ${successCount} segments via browser`);
+      this.logger.info(`Successfully downloaded ${successCount} segments via direct HTTP`);
       return true;
     }
 
@@ -694,6 +816,9 @@ export class M3U8Processor {
    * Clean up temporary files - equivalent of Python _cleanup
    */
   private cleanup(): void {
+    // Stop progress bar if still running
+    this.stopProgressBar();
+    
     if (this.tempDir && fs.existsSync(this.tempDir)) {
       try {
         fs.rmSync(this.tempDir, { recursive: true, force: true });
@@ -1118,19 +1243,31 @@ export class M3U8Processor {
     if (!this.tempDir) {
       this.tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'm3u8_download_'));
     }
-    this.logger.info(`🌐 Downloading ${playlist.segments.length} segments via browser (like Python)...`);
-
+    
+    // Initialize progress tracking for browser downloads
+    this.totalSegments = playlist.segments.length;
+    this.completedSegments = 0;
+    this.downloadStartTime = Date.now();
+    
+    this.logger.info(`🌐 Starting browser download of ${this.totalSegments} segments...`);
+    
+    // Initialize progress bar for browser downloads too
+    this.initializeProgressBar(this.totalSegments);
+    
     let successCount = 0;
-    const totalSegments = playlist.segments.length;
+    const startTime = Date.now();
 
-    // Download function for a single segment using browser with 3x retry (faster fallback)
+    // Download function for a single segment using browser with 10x retry
     const downloadSegmentWithBrowser = async (segment: Segment, index: number): Promise<boolean> => {
-      const maxRetries = 3; // Reduced from 5 to fail faster and fallback to curl
+      const maxRetries = 10; // Increased to match curl retry count
       const segmentUrl = this.resolveUrl(segment.uri, baseUrl);
       
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-          this.logger.info(`📥 Downloading segment ${index + 1}/${totalSegments} (attempt ${attempt}/${maxRetries}): ${segment.uri}`);
+          // Only log on first attempt to reduce verbosity
+          if (attempt === 1) {
+            this.logger.debug(`🌐 Browser downloading segment ${index + 1}/${this.totalSegments}: ${segment.uri}`);
+          }
           
           // Use browser to download segment with session headers (has session context like Python)
           const segmentData = await browserPage.evaluate(async (params: { url: string; headers: Record<string, string> }) => {
@@ -1175,10 +1312,11 @@ export class M3U8Processor {
             this.segmentFiles.push(segmentFile);
             successCount++;
             
-            this.logger.info(`✅ Downloaded segment ${index + 1}/${totalSegments} on attempt ${attempt} (${segmentData.size} bytes)`);
+            // Update progress atomically
+            this.incrementProgress();
             return true; // Success, exit retry loop
           } else {
-            this.logger.warn(`❌ Attempt ${attempt}/${maxRetries} failed for segment ${index + 1}/${totalSegments}: ${segmentData.error}`);
+            this.logger.warn(`❌ Attempt ${attempt}/${maxRetries} failed for segment ${index + 1}/${this.totalSegments}: ${segmentData.error}`);
             
             // If we get NetworkError consistently, fail faster to trigger curl fallback
             if (segmentData.error.includes('NetworkError') && attempt >= 2) {
@@ -1187,8 +1325,8 @@ export class M3U8Processor {
             }
             
             if (attempt < maxRetries) {
-              const delay = attempt * 500; // Reduced delays: 500ms, 1s, 1.5s
-              this.logger.info(`⏳ Waiting ${delay}ms before retry...`);
+                          const delay = Math.min(attempt * 300, 3000); // Progressive delays: 300ms, 600ms, 900ms... max 3s
+            this.logger.debug(`⏳ Waiting ${delay}ms before retry...`);
               await new Promise(resolve => setTimeout(resolve, delay));
             }
           }
@@ -1197,14 +1335,14 @@ export class M3U8Processor {
           this.logger.warn(`❌ Attempt ${attempt}/${maxRetries} error for segment ${index}: ${error}`);
           
           if (attempt < maxRetries) {
-            const delay = attempt * 500; // Reduced delays: 500ms, 1s, 1.5s, 2s
-            this.logger.info(`⏳ Waiting ${delay}ms before retry...`);
+            const delay = Math.min(attempt * 300, 3000); // Progressive delays: 300ms, 600ms, 900ms... max 3s
+            this.logger.debug(`⏳ Waiting ${delay}ms before retry...`);
             await new Promise(resolve => setTimeout(resolve, delay));
           }
         }
       }
       
-      this.logger.error(`❌ Failed to download segment ${index + 1}/${totalSegments} after ${maxRetries} attempts`);
+      this.logger.error(`❌ Failed to download segment ${index + 1}/${this.totalSegments} after ${maxRetries} attempts`);
       return false;
     };
 
@@ -1238,20 +1376,26 @@ export class M3U8Processor {
     // Wait for all downloads like Python
     await Promise.all(downloadPromises);
 
-    this.logger.info(`✅ Downloaded ${successCount}/${totalSegments} segments via browser`);
+    // Stop progress bar and show summary
+    this.stopProgressBar();
+    
+    const totalTime = (Date.now() - startTime) / 1000;
+    const avgSpeed = totalTime > 0 ? (successCount / totalTime).toFixed(1) : 'N/A';
+    
+    this.logger.info(`Browser download completed: ${successCount}/${this.totalSegments} segments successful in ${totalTime.toFixed(1)}s (avg: ${avgSpeed} seg/s)`);
 
     if (successCount === 0) {
-      this.logger.error('❌ No segments were downloaded successfully via browser');
+      this.logger.error('No segments were downloaded successfully via browser');
       return false;
     }
 
     // Accept partial success like Python (at least 80% of segments)
-    const successRate = successCount / totalSegments;
+    const successRate = successCount / this.totalSegments;
     if (successRate < 0.8) {
-      this.logger.warn(`⚠️  Partial browser success: ${(successRate * 100).toFixed(1)}% - will try curl fallback`);
+      this.logger.warn(`Partial browser success: ${(successRate * 100).toFixed(1)}% - will try curl fallback`);
       return false; // Force fallback to curl method
     } else {
-      this.logger.info(`✅ Successfully downloaded ${successCount} segments via browser`);
+      this.logger.info(`Successfully downloaded ${successCount} segments via browser`);
       return true;
     }
   }

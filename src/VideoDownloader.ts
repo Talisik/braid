@@ -70,31 +70,25 @@ export class VideoDownloader {
     this.logger.info(`Starting downloader with ${browserType.toUpperCase()}...`);
 
     try {
-      // Initialize browser
       await this.initializeBrowser(browserType);
       
       if (!this.page) {
         throw new Error('Failed to initialize page');
       }
 
-      // Set up monitoring and routing
       await this.setupComprehensiveMonitoring();
       await this.page.route('**/*', (route, request) => 
         this.routeHandler.handleRoute(route, request)
       );
 
-      // Set up iframe monitoring
       await this.iframeMonitor.setupMonitoring(this.page, this.requestHandler);
 
-      // Wait for initial page load
       this.logger.info('Waiting for page to fully load...');
       await this.pageHelper.waitForJWPlayerInitialization(this.page);
 
-      // Handle popups first before trying stream buttons
       this.logger.info('Handling popups and modals...');
       await this.popupHandler.closePopups(this.page);
       
-      // Monitor for popups during initial load
       await this.popupHandler.waitAndClosePopups(this.page, 3000);
       
       this.logger.info('Starting stream button handling...');
@@ -139,10 +133,8 @@ export class VideoDownloader {
 
     this.logger.info('Setting up comprehensive monitoring...');
     
-    // Set up network monitoring
     this.networkMonitor.setupComprehensiveMonitoring(this.page);
     
-    // Set up request/response handlers
     this.page.on('request', async (request) => {
       await this.requestHandler.handleRequest(request);
     });
@@ -157,7 +149,6 @@ export class VideoDownloader {
 
     this.logger.info('Trying stream buttons with monitoring...');
 
-    // Get available stream buttons from the handler
     const availableButtons = await this.streamButtonHandler.findAvailableStreamButtons(this.page);
     
     if (availableButtons.length === 0) {
@@ -167,15 +158,12 @@ export class VideoDownloader {
 
     this.logger.info(`Found ${availableButtons.length} available stream buttons - will try all of them`);
 
-    // Try each button with monitoring
     for (const selector of availableButtons) {
       try {
         this.logger.info(`Trying stream button: ${selector}`);
 
-        // Clear previous candidates
         this.videoCandidates = [];
 
-        // Use StreamButtonHandler to click the button
         const buttonClicked = await this.streamButtonHandler.clickSpecificStreamButton(this.page, selector);
         
         if (!buttonClicked) {
@@ -183,18 +171,14 @@ export class VideoDownloader {
           continue;
         }
 
-        // Wait for iframe then check if it's an ad
-        this.logger.info('⏳ Waiting for iframe to load...');
+        this.logger.info('Waiting for iframe to load...');
         await this.page.waitForTimeout(3000);
         
-        // Handle any popups that appeared after clicking stream button
         await this.popupHandler.closePopups(this.page);
         
-        // Check if we got redirected to an ad
         if (await this.isAdRedirect()) {
           this.logger.warn('Ad redirect detected - attempting to click through ad...');
-          
-          // Try multiple times to click through the ad
+
           let adClickedThrough = false;
           for (let attempt = 1; attempt <= 3; attempt++) {
             this.logger.info(`Ad click-through attempt ${attempt}/3`);
@@ -202,13 +186,10 @@ export class VideoDownloader {
             adClickedThrough = await this.clickThroughAd();
             if (adClickedThrough) {
               this.logger.info('Clicked through ad, waiting for video iframe...');
-              // Close any popups that appeared after ad click-through
               await this.popupHandler.closePopups(this.page);
               
-              // Wait longer for video iframe to appear
               await this.page.waitForTimeout(5000);
               
-              // Check if video iframe appeared
               const videoIframeNow = await this.checkForVideoIframe();
               if (videoIframeNow) {
                 this.logger.info('Video iframe found after ad click-through!');
@@ -227,8 +208,7 @@ export class VideoDownloader {
             this.logger.warn('Could not click through ad after 3 attempts');
           }
         }
-        
-        // Check if we already have a video iframe (from initial page load)
+
         const existingVideoIframes = this.page.frames().filter(frame => {
           const url = frame.url();
           return (url.includes('turbovidhls.com') || 
@@ -249,49 +229,43 @@ export class VideoDownloader {
         if (videoIframeFound) {
           this.logger.info(`Video iframe already present: ${existingVideoIframes[0].url()}`);
         } else {
-          // Wait longer for the video iframe to appear after ad click-through
-          this.logger.info('⏳ Waiting for video iframe to appear (may take 30 seconds after ad click-through)...');
-          videoIframeFound = await this.waitForVideoIframe(30000); // Wait 30 seconds instead of 15
+          this.logger.info('Waiting for video iframe to appear (may take 30 seconds after ad click-through)...');
+          videoIframeFound = await this.waitForVideoIframe(30000);
           
           if (!videoIframeFound) {
-            this.logger.warn('❌ No video iframe found after 30 seconds');
+            this.logger.warn('No video iframe found after 30 seconds');
             
-            // Check if we have any M3U8 candidates from network monitoring
             const networkCandidates = this.networkMonitor.getVideoCandidates();
             const requestCandidates = this.requestHandler.getVideoCandidates();
             const allCandidates = [...networkCandidates, ...requestCandidates];
             
             if (allCandidates.length > 0) {
-              this.logger.info(`🎯 Found ${allCandidates.length} M3U8 candidates from network monitoring - processing them`);
+              this.logger.info(`Found ${allCandidates.length} M3U8 candidates from network monitoring - processing them`);
               
-              // Add them to our candidates and try to process
               for (const candidate of allCandidates) {
                 if (!this.videoCandidates.some(c => c.url === candidate.url)) {
                   this.videoCandidates.push(candidate);
                 }
               }
               
-              // Try to process the M3U8 candidates we found
               const downloadSuccess = await this.processResults();
               if (downloadSuccess) {
-                this.logger.info(`✅ SUCCESS! Downloaded video using M3U8 candidates from button: ${selector}`);
+                this.logger.info(`SUCCESS! Downloaded video using M3U8 candidates from button: ${selector}`);
                 this.playButtonHandler.markDownloadCompleted();
                 return true;
               }
             }
             
-            this.logger.warn('❌ No video iframe and no M3U8 candidates - trying next stream button');
+            this.logger.warn('No video iframe and no M3U8 candidates - trying next stream button');
             continue;
           }
         }
-        
-        // Try to click play buttons in video iframes - be more persistent
-        this.logger.info('🎮 Looking for play buttons in video iframes...');
+ 
+        this.logger.info('Looking for play buttons in video iframes...');
         let playButtonClicked = false;
-        
-        // Try multiple times to find and click play button
+
         for (let attempt = 1; attempt <= 3; attempt++) {
-          this.logger.info(`🎮 Play button attempt ${attempt}/3...`);
+          this.logger.info(`Play button attempt ${attempt}/3...`);
           playButtonClicked = await this.tryClickPlayButtonInIframes();
           
           if (playButtonClicked) {
@@ -307,24 +281,20 @@ export class VideoDownloader {
           this.logger.warn('No play button found after 3 attempts - still monitoring...');
         }
 
-        // Check if we already have video candidates from initial page load
         const networkCandidates = this.networkMonitor.getVideoCandidates();
         const requestCandidates = this.requestHandler.getVideoCandidates();
         const initialCandidates = [...networkCandidates, ...requestCandidates];
         
         if (initialCandidates.length > 0) {
           this.logger.info(`Found ${initialCandidates.length} video candidates from initial page load - processing immediately`);
-          
-          // Add them to our candidates
+
           for (const candidate of initialCandidates) {
             if (!this.videoCandidates.some(c => c.url === candidate.url)) {
               this.videoCandidates.push(candidate);
             }
           }
           
-          // Sort candidates by quality/preference and try the best one first
           const sortedCandidates = initialCandidates.sort((a, b) => {
-            // Prefer higher quality (720p > 480p > default)
             const aHasQuality = a.url.includes('720') || a.url.includes('1080');
             const bHasQuality = b.url.includes('720') || b.url.includes('1080');
             if (aHasQuality && !bHasQuality) return -1;
@@ -332,9 +302,8 @@ export class VideoDownloader {
             return 0;
           });
           
-          // Try to process the best candidate immediately
           for (const candidate of sortedCandidates) {
-            this.logger.info(`🚀 IMMEDIATE PROCESSING: ${candidate.url}`);
+            this.logger.info(`IMMEDIATE PROCESSING: ${candidate.url}`);
             
             let success = false;
             if (candidate.url.includes('.m3u8')) {
@@ -344,22 +313,20 @@ export class VideoDownloader {
             }
             
             if (success) {
-              this.logger.info(`✅ SUCCESS! Downloaded video immediately using: ${candidate.url}`);
+              this.logger.info(`SUCCESS! Downloaded video immediately using: ${candidate.url}`);
               this.playButtonHandler.markDownloadCompleted();
               return true;
             } else {
-              this.logger.warn(`❌ Immediate processing failed for: ${candidate.url}`);
+              this.logger.warn(`Immediate processing failed for: ${candidate.url}`);
             }
           }
           
           this.logger.warn('Immediate processing failed for all candidates, falling back to monitoring...');
         }
 
-        // Monitor for video streams
         const success = await this.monitorForVideoStreams(selector, 60);
 
         if (success) {
-          // Check if success was due to direct URL
           if (this.directUrlFound) {
             this.logger.info(`SUCCESS! Direct video URL found with button: ${selector}`);
             return true;
@@ -367,7 +334,7 @@ export class VideoDownloader {
 
           this.logger.info(`Found video streams with button: ${selector}`);
 
-          // Try to process the results using StreamHandler and M3U8Processor
+
           const downloadSuccess = await this.processResults();
 
           if (downloadSuccess) {
@@ -375,21 +342,21 @@ export class VideoDownloader {
             this.playButtonHandler.markDownloadCompleted();
             return true;
           } else {
-            this.logger.warn(`❌ Button ${selector} found streams but all contained ads - trying next button`);
+            this.logger.warn(`Button ${selector} found streams but all contained ads - trying next button`);
             continue;
           }
         } else {
-          this.logger.warn(`❌ Button ${selector} did not find any video streams - trying next button`);
+          this.logger.warn(`Button ${selector} did not find any video streams - trying next button`);
           continue;
         }
 
       } catch (error) {
-        this.logger.warn(`❌ Error with button ${selector}: ${error} - trying next button`);
+        this.logger.warn(`Error with button ${selector}: ${error} - trying next button`);
         continue;
       }
     }
 
-    this.logger.error(`❌ All ${availableButtons.length} stream buttons failed - no video found`);
+    this.logger.error(`All ${availableButtons.length} stream buttons failed - no video found`);
     return false;
   }
 
@@ -400,13 +367,13 @@ export class VideoDownloader {
     let playButtonClicked = false;
     
     for (const frame of frames) {
-      if (frame === this.page.mainFrame()) continue; // Skip main frame
+      if (frame === this.page.mainFrame()) continue;
       
       try {
         const frameUrl = frame.url();
         if (!frameUrl || frameUrl === 'about:blank' || frameUrl.includes('searcho')) continue;
         
-        this.logger.info(`🔍 Checking iframe for play button: ${frameUrl}`);
+        this.logger.info(`Checking iframe for play button: ${frameUrl}`);
         
         // Wait for iframe to fully load
         await this.page.waitForTimeout(1000);
@@ -465,10 +432,10 @@ export class VideoDownloader {
                 const isVisible = await button.isVisible({ timeout: 1000 });
                 
                 if (isVisible) {
-                  this.logger.info(`🎮 Found play button: ${selector} in ${frameUrl}`);
+                  this.logger.info(`Found play button: ${selector} in ${frameUrl}`);
                   
                   try {
-                    this.logger.info(`🎯 Attempting to click play button with ${selector}`);
+                    this.logger.info(`Attempting to click play button with ${selector}`);
                     
                     // Strategy 1: Execute start_player function if it exists
                     await button.evaluate((el) => {
@@ -548,7 +515,7 @@ export class VideoDownloader {
                     try {
                       const hasPlayingVideo = await frame.locator('video[autoplay], video:not([paused]), .jwplayer.jw-state-playing').count();
                       if (hasPlayingVideo > 0) {
-                        this.logger.info(`🎬 Video playback detected!`);
+                        this.logger.info(`Video playback detected!`);
                         return true;
                       }
                     } catch (videoCheckError) {
@@ -580,7 +547,7 @@ export class VideoDownloader {
       return true;
     }
     
-    this.logger.warn(`❌ No play buttons found or clicked successfully`);
+    this.logger.warn(`No play buttons found or clicked successfully`);
     return false;
   }
 
@@ -686,13 +653,13 @@ export class VideoDownloader {
                     const isVisible = await element.isVisible({ timeout: 1000 });
                     
                     if (isVisible) {
-                      this.logger.info(`🎯 Clicking ${selector} in ad iframe`);
+                      this.logger.info(`Clicking ${selector} in ad iframe`);
                       
                       // Try multiple click strategies
                       try {
                         // Strategy 1: Regular click
                         await element.click({ force: true, timeout: 3000 });
-                        this.logger.info(`✅ Regular click succeeded on ${selector}`);
+                        this.logger.info(`Regular click succeeded on ${selector}`);
                       } catch {
                         try {
                           // Strategy 2: JavaScript click
@@ -701,14 +668,14 @@ export class VideoDownloader {
                               (el as any).click();
                             }
                           });
-                          this.logger.info(`✅ JavaScript click succeeded on ${selector}`);
+                          this.logger.info(`JavaScript click succeeded on ${selector}`);
                         } catch {
                           // Strategy 3: Dispatch click event
                           await element.evaluate((el) => {
                             const event = new MouseEvent('click', { bubbles: true, cancelable: true });
                             el.dispatchEvent(event);
                           });
-                          this.logger.info(`✅ Event dispatch succeeded on ${selector}`);
+                          this.logger.info(`Event dispatch succeeded on ${selector}`);
                         }
                       }
                       
@@ -730,7 +697,7 @@ export class VideoDownloader {
           
           // If no specific elements worked, try clicking different areas of the iframe
           if (!clickedSuccessfully) {
-            this.logger.info(`🎯 No specific elements found, trying to click iframe areas directly`);
+            this.logger.info(`No specific elements found, trying to click iframe areas directly`);
             
             try {
               const iframeSelector = `iframe[src*="${new URL(url).hostname}"]`;
@@ -750,7 +717,7 @@ export class VideoDownloader {
                   
                   for (const position of clickPositions) {
                     try {
-                      this.logger.info(`🎯 Clicking iframe at position (${Math.round(position.x)}, ${Math.round(position.y)})`);
+                      this.logger.info(`Clicking iframe at position (${Math.round(position.x)}, ${Math.round(position.y)})`);
                       
                       await iframeElement.click({ 
                         position: position, 
@@ -760,11 +727,11 @@ export class VideoDownloader {
                       
                       await this.page.waitForTimeout(2000);
                       clickedSuccessfully = true;
-                      this.logger.info(`✅ Iframe position click succeeded`);
+                      this.logger.info(`Iframe position click succeeded`);
                       break;
                       
                     } catch (positionClickError) {
-                      this.logger.warn(`❌ Position click failed: ${positionClickError}`);
+                      this.logger.warn(`Position click failed: ${positionClickError}`);
                       continue;
                     }
                   }
@@ -776,7 +743,7 @@ export class VideoDownloader {
                     timeout: 3000 
                   });
                   clickedSuccessfully = true;
-                  this.logger.info(`✅ Fallback iframe click succeeded`);
+                  this.logger.info(`Fallback iframe click succeeded`);
                 }
                 
                 if (clickedSuccessfully) {
@@ -784,12 +751,12 @@ export class VideoDownloader {
                 }
               }
             } catch (iframeClickError) {
-              this.logger.warn(`❌ Iframe area click failed: ${iframeClickError}`);
+              this.logger.warn(`Iframe area click failed: ${iframeClickError}`);
             }
           }
           
           if (clickedSuccessfully) {
-            this.logger.info(`✅ Ad click-through completed, checking for video iframe...`);
+            this.logger.info(`Ad click-through completed, checking for video iframe...`);
             return true;
           }
           
@@ -835,7 +802,7 @@ export class VideoDownloader {
           try {
             const hasVideoElements = await frame.locator('video, .video-player, .jwplayer, [class*="player"]').count();
             if (hasVideoElements > 0) {
-              this.logger.info(`✅ Video elements detected in iframe`);
+              this.logger.info(`Video elements detected in iframe`);
               return true;
             }
           } catch (error) {
@@ -848,7 +815,7 @@ export class VideoDownloader {
       
       const elapsed = Date.now() - startTime;
       if (elapsed % 3000 === 0) { // Log every 3 seconds
-        this.logger.info(`⏳ Still waiting for video iframe... ${elapsed/1000}s elapsed`);
+        this.logger.info(`Still waiting for video iframe... ${elapsed/1000}s elapsed`);
         
         // Log current iframe URLs for debugging
         const currentFrames = this.page.frames();
@@ -923,10 +890,10 @@ export class VideoDownloader {
       if (!playButtonClicked && this.videoCandidates.length === 0 && !this.directUrlFound) {
         const elapsed = (Date.now() - startTime) / 1000;
         if (elapsed > 5) {
-          this.logger.info('🎮 Trying play buttons during monitoring...');
+          this.logger.info('Trying play buttons during monitoring...');
           const playSuccess = await this.tryClickPlayButtonInIframes();
           if (playSuccess) {
-            this.logger.info('✅ Play button clicked successfully');
+            this.logger.info('Play button clicked successfully');
             playButtonClicked = true;
             // Give more time for streams to appear after play button click
             await this.page!.waitForTimeout(3000);
@@ -940,7 +907,7 @@ export class VideoDownloader {
 
       // Check if direct URL was found
       if (this.directUrlFound) {
-        this.logger.info('🎯 DIRECT URL FOUND - STOPPING ALL M3U8 PROCESSING!');
+        this.logger.info('DIRECT URL FOUND - STOPPING ALL M3U8 PROCESSING!');
         return true;
       }
 
@@ -949,7 +916,7 @@ export class VideoDownloader {
       // Update iframe monitoring for new frames
       const framesAfterCount = this.page!.frames().length;
       if (framesAfterCount > framesBeforeCount) {
-        this.logger.info(`🆕 New iframe(s) detected: ${framesAfterCount - framesBeforeCount}`);
+        this.logger.info(`New iframe(s) detected: ${framesAfterCount - framesBeforeCount}`);
         await this.iframeMonitor.setupMonitoring(this.page!, this.requestHandler);
         await this.iframeMonitor.waitForIframeContentLoad(this.page!);
         framesBeforeCount = framesAfterCount;

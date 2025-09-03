@@ -15,7 +15,7 @@ export class ChromiumBrowser {
   async launch(config: BrowserConfig = {}): Promise<void> {
     try {
       this.browser = await chromium.launch({
-        headless: config.headless ?? false,
+        headless: config.headless ?? true,
         args: [
           '--no-sandbox',
           '--disable-dev-shm-usage',
