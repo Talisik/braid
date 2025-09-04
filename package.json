@@ -1,5 +1,5 @@
 {
-  "name": "main",
+  "name": "braid",
   "version": "1.0.0",
   "description": "A powerful TypeScript library for downloading videos from web pages, including M3U8/HLS streams, with intelligent browser automation and stream detection.",
   "main": "dist/index.js",
