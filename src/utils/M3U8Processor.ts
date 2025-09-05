@@ -1205,31 +1205,28 @@ export class M3U8Processor {
             this.logger.debug(`Extracting M3U8 from browser: ${url}`);
             
             const response = await browserPage.evaluate(
-                async (m3u8Url: string) => {
-                    try {
-                        const response = await fetch(m3u8Url, {
-                            method: "GET",
-                            credentials: "include",
-                            headers: {
-                                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                                Accept: "*/*",
-                                "Accept-Language": "en-US,en;q=0.9",
-                                "Cache-Control": "no-cache",
-                            },
-                        });
-
+                (m3u8Url: string) => {
+                    return fetch(m3u8Url, {
+                        method: "GET",
+                        credentials: "include",
+                        headers: {
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                            Accept: "*/*",
+                            "Accept-Language": "en-US,en;q=0.9",
+                            "Cache-Control": "no-cache",
+                        },
+                    })
+                    .then(response => {
                         if (!response.ok) {
                             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                         }
-
-                        const text = await response.text();
-                        return { success: true, content: text };
-                    } catch (error) {
-                        return {
-                            success: false,
-                            error: error instanceof Error ? error.message : String(error),
-                        };
-                    }
+                        return response.text();
+                    })
+                    .then(text => ({ success: true, content: text }))
+                    .catch(error => ({
+                        success: false,
+                        error: error instanceof Error ? error.message : String(error),
+                    }));
                 },
                 url
             );
@@ -1277,29 +1274,26 @@ export class M3U8Processor {
             
             try {
                 const segmentData = await browserPage.evaluate(
-                    async (params: { url: string; headers: Record<string, string> }) => {
-                        try {
-                            const response = await fetch(params.url, {
-                                method: "GET",
-                                credentials: "include",
-                                headers: params.headers,
-                            });
-
+                    (params: { url: string; headers: Record<string, string> }) => {
+                        return fetch(params.url, {
+                            method: "GET",
+                            credentials: "include",
+                            headers: params.headers,
+                        })
+                        .then(response => {
                             if (!response.ok) {
                                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                             }
-
-                            const arrayBuffer = await response.arrayBuffer();
-                            return {
-                                success: true,
-                                data: Array.from(new Uint8Array(arrayBuffer)),
-                            };
-                        } catch (error) {
-                            return {
-                                success: false,
-                                error: error instanceof Error ? error.message : String(error),
-                            };
-                        }
+                            return response.arrayBuffer();
+                        })
+                        .then(arrayBuffer => ({
+                            success: true,
+                            data: Array.from(new Uint8Array(arrayBuffer)),
+                        }))
+                        .catch(error => ({
+                            success: false,
+                            error: error instanceof Error ? error.message : String(error),
+                        }));
                     },
                     {
                         url: segmentUrl,
