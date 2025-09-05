@@ -5,7 +5,7 @@
  * to automatically find and download video streams from web pages.
  */
 
-const { VideoDownloader } = require('./dist/index.js');
+import { VideoDownloader } from './dist/index.js';
 
 async function main() {
   console.log('🚀 Starting video download example...\n');

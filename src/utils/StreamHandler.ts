@@ -240,7 +240,11 @@ export class StreamHandler {
     }
 
     private isAdDomain(domain: string): boolean {
-        const adDomains = ["emturbovid.com"]; // Only real ad domains
+        const adDomains = [
+            "emturbovid.com",
+            "growcdnssedge.com",
+            "sacdnssedge.com"
+        ]; // Only real ad domains
         return adDomains.some((d) => domain.toLowerCase().includes(d));
     }
 

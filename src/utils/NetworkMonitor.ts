@@ -82,9 +82,10 @@ export class NetworkMonitor {
     }
 
     private isImportantRequest(url: string): boolean {
-        // Block ALL sacdnssedge domains completely
+        // Block ALL sacdnssedge and growcdnssedge domains completely
         if (
             url.includes("sacdnssedge") ||
+            url.includes("growcdnssedge") ||
             url.includes("tscprts.com") ||
             url.includes("mnaspm.com") ||
             url.includes("tsyndicate.com")
@@ -97,9 +98,10 @@ export class NetworkMonitor {
     }
 
     private isVideoRelatedUrl(url: string): boolean {
-        // Block ALL sacdnssedge domains completely
+        // Block ALL sacdnssedge and growcdnssedge domains completely
         if (
             url.includes("sacdnssedge") ||
+            url.includes("growcdnssedge") ||
             url.includes("tscprts.com") ||
             url.includes("mnaspm.com") ||
             url.includes("tsyndicate.com")

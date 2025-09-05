@@ -40,9 +40,9 @@ program
             }
         ) => {
             try {
-                console.log(`🚀 Starting video download from: ${url}`);
-                console.log(`📁 Output directory: ${options.output}`);
-                console.log(`🌐 Browser: ${options.browser}`);
+                console.log(`Starting video download from: ${url}`);
+                console.log(`Output directory: ${options.output}`);
+                console.log(`Browser: ${options.browser}`);
 
                 const downloader = new VideoDownloader({
                     browserType: options.browser as BrowserType,
@@ -64,10 +64,10 @@ program
                 const success = await downloader.main();
 
                 if (success) {
-                    console.log("✅ Video download completed successfully!");
+                    console.log("Video download completed successfully!");
                     process.exit(0);
                 } else {
-                    console.error("❌ Video download failed");
+                    console.error("Video download failed");
                     process.exit(1);
                 }
             } catch (error) {
@@ -87,10 +87,10 @@ program
     .option("-w, --workers <number>", "Max concurrent workers", "4")
     .option("-t, --timeout <ms>", "Request timeout in milliseconds", "30000")
     .option("-r, --retries <number>", "Number of retries per segment", "3")
-    .option("--ffmpeg <path>", "Path to ffmpeg binary", "ffmpeg")
+    .option("--ffmpeg <path>", "Path to ffmpeg binary (uses bundled FFmpeg by default)")
     .action(async (url: string, options) => {
         try {
-            console.log(`🎬 Starting M3U8 download from: ${url}`);
+            console.log(`Starting M3U8 download from: ${url}`);
 
             const { M3U8Processor } = await import("./utils/M3U8Processor.js");
 
@@ -109,15 +109,15 @@ program
             );
 
             if (success) {
-                console.log("✅ M3U8 download completed successfully!");
+                console.log("M3U8 download completed successfully!");
                 process.exit(0);
             } else {
-                console.error("❌ M3U8 download failed");
+                console.error("M3U8 download failed");
                 process.exit(1);
             }
         } catch (error) {
             console.error(
-                "❌ Error:",
+                "Error:",
                 error instanceof Error ? error.message : String(error)
             );
             process.exit(1);
@@ -126,12 +126,18 @@ program
 
 // Handle unknown commands
 program.command("*", { hidden: true }).action(() => {
-    console.error("❌ Unknown command. Use --help for available commands.");
+    console.error("Unknown command. Use --help for available commands.");
     process.exit(1);
 });
 
 // Parse CLI arguments
-if (require.main === module) {
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+if (import.meta.url === `file://${process.argv[1]}`) {
     program.parse();
 }
 

@@ -75,7 +75,7 @@ export class VideoDownloader {
         );
 
         this.logger.info(
-            `Starting downloader with ${browserType.toUpperCase()}...`
+            `Starting downloader with ${browserType.toUpperCase()}`
         );
 
         try {
@@ -95,24 +95,24 @@ export class VideoDownloader {
                 this.requestHandler
             );
 
-            this.logger.info("Waiting for page to fully load...");
+            this.logger.debug("Waiting for page to fully load...");
             await this.pageHelper.waitForJWPlayerInitialization(this.page);
 
-            this.logger.info("Handling popups and modals...");
+            this.logger.debug("Handling popups and modals...");
             await this.popupHandler.closePopups(this.page);
 
             await this.popupHandler.waitAndClosePopups(this.page, 3000);
 
-            this.logger.info("Starting stream button handling...");
+            this.logger.debug("Starting stream button handling...");
             const success = await this.tryStreamButtonsWithMonitoring();
 
             if (success) {
-                this.logger.info("Successfully found and downloaded video!");
+                this.logger.info("Download completed successfully");
                 this.playButtonHandler.markDownloadCompleted();
                 return true;
             } else {
                 this.logger.warn(
-                    "No video streams found or all contained ads after trying all buttons"
+                    "No video streams found"
                 );
                 await this.pageHelper.takeScreenshot(
                     this.page,
@@ -147,7 +147,7 @@ export class VideoDownloader {
     private async setupComprehensiveMonitoring(): Promise<void> {
         if (!this.page) return;
 
-        this.logger.info("Setting up comprehensive monitoring...");
+        this.logger.debug("Setting up comprehensive monitoring...");
 
         this.networkMonitor.setupComprehensiveMonitoring(this.page);
 
@@ -163,7 +163,7 @@ export class VideoDownloader {
     private async tryStreamButtonsWithMonitoring(): Promise<boolean> {
         if (!this.page) return false;
 
-        this.logger.info("Trying stream buttons with monitoring...");
+        this.logger.debug("Trying stream buttons with monitoring...");
 
         const availableButtons =
             await this.streamButtonHandler.findAvailableStreamButtons(
@@ -176,12 +176,12 @@ export class VideoDownloader {
         }
 
         this.logger.info(
-            `Found ${availableButtons.length} available stream buttons - will try all of them`
+            `Found ${availableButtons.length} stream buttons`
         );
 
         for (const selector of availableButtons) {
             try {
-                this.logger.info(`Trying stream button: ${selector}`);
+                this.logger.debug(`Trying stream button: ${selector}`);
 
                 this.videoCandidates = [];
 
@@ -198,13 +198,13 @@ export class VideoDownloader {
                     continue;
                 }
 
-                this.logger.info("Waiting for iframe to load...");
+                this.logger.debug("Waiting for iframe to load...");
                 await this.page.waitForTimeout(3000);
 
                 await this.popupHandler.closePopups(this.page);
 
                 if (await this.isAdRedirect()) {
-                    this.logger.warn(
+                    this.logger.debug(
                         "Ad redirect detected - attempting to click through ad..."
                     );
 
@@ -430,9 +430,9 @@ export class VideoDownloader {
                     );
                 }
 
-                const success = await this.monitorForVideoStreams(selector, 60);
+                const result = await this.monitorForVideoStreams(selector, 60);
 
-                if (success) {
+                if (result.success) {
                     if (this.directUrlFound) {
                         this.logger.info(
                             `SUCCESS! Direct video URL found with button: ${selector}`
@@ -440,6 +440,16 @@ export class VideoDownloader {
                         return true;
                     }
 
+                    // If results were already processed during monitoring, return success
+                    if (result.processed) {
+                        this.logger.info(
+                            `SUCCESS! Downloaded video using button: ${selector} (processed during monitoring)`
+                        );
+                        this.playButtonHandler.markDownloadCompleted();
+                        return true;
+                    }
+
+                    // Otherwise process results now
                     this.logger.info(
                         `Found video streams with button: ${selector}`
                     );
@@ -1157,7 +1167,7 @@ export class VideoDownloader {
     private async monitorForVideoStreams(
         buttonName: string,
         timeout: number = 180
-    ): Promise<boolean> {
+    ): Promise<{ success: boolean; processed: boolean }> {
         this.logger.info(
             `Monitoring for video streams after clicking ${buttonName}...`
         );
@@ -1187,7 +1197,7 @@ export class VideoDownloader {
                 const downloadSuccess = await downloadPromise;
                 if (downloadSuccess) {
                     this.logger.info("Download completed successfully!");
-                    return true;
+                    return { success: true, processed: true };
                 }
             }
 
@@ -1225,7 +1235,7 @@ export class VideoDownloader {
                 this.logger.info(
                     "DIRECT URL FOUND - STOPPING ALL M3U8 PROCESSING!"
                 );
-                return true;
+                return { success: true, processed: false };
             }
 
             await this.page!.waitForTimeout(2000);
@@ -1299,7 +1309,7 @@ export class VideoDownloader {
                             const directSuccess =
                                 await this.downloadDirectVideo(video.url);
                             if (directSuccess) {
-                                return true;
+                                return { success: true, processed: true };
                             }
                         } else if (
                             video.type === "m3u8" ||
@@ -1312,12 +1322,12 @@ export class VideoDownloader {
                                 video.url
                             );
                             if (m3u8Success) {
-                                return true;
+                                return { success: true, processed: true };
                             }
                         }
                     }
 
-                    return true;
+                    return { success: true, processed: false };
                 }
             }
 
@@ -1350,7 +1360,17 @@ export class VideoDownloader {
                     continue;
                 }
 
-                return true;
+                // Process the candidates immediately and stop monitoring if successful
+                this.logger.info("Processing video candidates...");
+                const downloadSuccess = await this.processResults();
+                if (downloadSuccess) {
+                    this.logger.info("Download started successfully! Stopping monitoring.");
+                    return { success: true, processed: true };
+                } else {
+                    this.logger.warn("Failed to start download with current candidates, continuing monitoring...");
+                    // Clear failed candidates and continue monitoring
+                    this.videoCandidates = [];
+                }
             }
 
             // Show progress
@@ -1358,7 +1378,7 @@ export class VideoDownloader {
         }
 
         this.logger.info(`No video streams found after ${timeout}s monitoring`);
-        return false;
+        return { success: false, processed: false };
     }
 
     private async processResults(): Promise<boolean> {

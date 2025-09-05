@@ -37,6 +37,9 @@ export class AdBlocker {
       'demdex.net',
       'adsafeprotected.com',
       'creative.mnaspm.com',
+      'growcdnssedge.com',
+      'edge-hls.growcdnssedge.com',
+      'media-hls.growcdnssedge.com',
     ]);
 
     this.blockedPatterns = [

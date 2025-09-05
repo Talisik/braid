@@ -83,8 +83,8 @@ export class RequestHandler {
     }
 
     private isVideoRelatedUrl(url: string): boolean {
-        // Block ALL sacdnssedge domains completely - even M3U8 files
-        if (url.includes("sacdnssedge")) {
+        // Block ALL sacdnssedge and growcdnssedge domains completely - even M3U8 files
+        if (url.includes("sacdnssedge") || url.includes("growcdnssedge")) {
             return false;
         }
 

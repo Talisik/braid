@@ -34,7 +34,7 @@ export class FirefoxBrowser {
                 },
             });
 
-            this.logger.info(
+            this.logger.debug(
                 "Firefox browser launched with enhanced privacy settings"
             );
         } catch (error) {
@@ -58,12 +58,12 @@ export class FirefoxBrowser {
 
         if (url) {
             try {
-                this.logger.info(`Navigating to: ${url}`);
+                this.logger.debug(`Navigating to: ${url}`);
                 await page.goto(url, {
                     waitUntil: "domcontentloaded",
                     timeout: 30000,
                 });
-                this.logger.info("Page loaded successfully");
+                this.logger.debug("Page loaded successfully");
 
                 // Wait for dynamic content
                 await page.waitForTimeout(3000);
@@ -80,14 +80,14 @@ export class FirefoxBrowser {
     private logRequest(request: any): void {
         const url = request.url();
         if (this.isVideoRelatedUrl(url)) {
-            this.logger.info(`REQUEST: ${request.method()} ${url}`);
+            this.logger.debug(`REQUEST: ${request.method()} ${url}`);
         }
     }
 
     private logResponse(response: any): void {
         const url = response.url();
         if (this.isVideoRelatedUrl(url)) {
-            this.logger.info(`RESPONSE: ${response.status()} ${url}`);
+            this.logger.debug(`RESPONSE: ${response.status()} ${url}`);
         }
     }
 
@@ -109,7 +109,7 @@ export class FirefoxBrowser {
         try {
             if (this.browser) {
                 await this.browser.close();
-                this.logger.info("Firefox browser closed");
+                this.logger.debug("Firefox browser closed");
             }
         } catch (error) {
             this.logger.warn(`Error closing Firefox browser: ${error}`);
