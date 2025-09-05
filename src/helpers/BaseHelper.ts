@@ -43,7 +43,7 @@ export abstract class BaseHelper {
 
         // PRIORITY: Direct turbovidhls.com/t/ URLs are ALWAYS valid
         if (urlLower.includes("turbovidhls.com/t/")) {
-            this.logger.info(`✅ PRIORITY DIRECT VIDEO URL DETECTED: ${url}`);
+            this.logger.info(`Priority direct video URL detected: ${url}`);
             return true;
         }
 

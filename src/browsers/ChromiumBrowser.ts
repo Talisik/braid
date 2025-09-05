@@ -43,7 +43,7 @@ export class ChromiumBrowser {
                 javaScriptEnabled: config.javaScriptEnabled ?? true,
             });
 
-            this.logger.info("🌐 Chromium browser launched");
+            this.logger.debug("Chromium browser launched");
         } catch (error) {
             this.logger.error("Failed to launch Chromium browser:", error);
             throw error;
@@ -87,7 +87,7 @@ export class ChromiumBrowser {
     private logRequest(request: any): void {
         const url = request.url();
         if (this.isVideoRelatedUrl(url)) {
-            this.logger.info(`📡 REQUEST: ${request.method()} ${url}`);
+            this.logger.debug(`REQUEST: ${request.method()} ${url}`);
         }
     }
 

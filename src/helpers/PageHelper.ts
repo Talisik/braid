@@ -10,10 +10,10 @@ export class PageHelper extends BaseHelper {
             await page.waitForSelector('script[src*="jwplayer"]', {
                 timeout: 10000,
             });
-            this.logger.info("✅ JWPlayer script detected");
+            this.logger.debug("JWPlayer script detected");
         } catch {
             this.logger.warn(
-                "⚠️ JWPlayer script not found, continuing anyway..."
+                "JWPlayer script not found, continuing anyway..."
             );
         }
 
@@ -31,12 +31,12 @@ export class PageHelper extends BaseHelper {
             });
 
             if (jwplayerReady) {
-                this.logger.info("✅ JWPlayer is initialized and ready");
+                this.logger.debug("JWPlayer is initialized and ready");
             } else {
-                this.logger.warn("⚠️ JWPlayer may not be fully initialized");
+                this.logger.debug("JWPlayer may not be fully initialized");
             }
         } catch (error) {
-            this.logger.warn(`⚠️ Could not check JWPlayer status: ${error}`);
+            this.logger.debug(`Could not check JWPlayer status: ${error}`);
         }
 
         // Wait for any initial video player setup
@@ -45,7 +45,7 @@ export class PageHelper extends BaseHelper {
 
     async extractVideoUrlsFromDOM(page: Page): Promise<any[]> {
         try {
-            this.logger.info("🔍 SCANNING DOM FOR VIDEO URLs...");
+            this.logger.debug("Scanning DOM for video URLs...");
 
             // Check all frames (main page and iframes)
             const allFrames = [
@@ -65,7 +65,7 @@ export class PageHelper extends BaseHelper {
 
                 try {
                     this.logger.info(
-                        `🔍 Checking ${frameName} frame for video elements...`
+                        `Checking ${frameName} frame for video elements...`
                     );
 
                     const videoElements = await frame.evaluate(() => {
@@ -165,7 +165,7 @@ export class PageHelper extends BaseHelper {
 
                         for (const videoInfo of videoElements) {
                             this.logger.info(
-                                `  🎯 ${videoInfo.type} (${videoInfo.element}): ${videoInfo.url}`
+                                `  ${videoInfo.type} (${videoInfo.element}): ${videoInfo.url}`
                             );
                             allVideoElements.push({
                                 ...videoInfo,
@@ -182,7 +182,7 @@ export class PageHelper extends BaseHelper {
             }
 
             if (allVideoElements.length === 0) {
-                this.logger.info("❌ No video URLs found in DOM");
+                this.logger.debug("No video URLs found in DOM");
             }
 
             return allVideoElements;

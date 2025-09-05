@@ -12,7 +12,7 @@ async function testPatient() {
     url: 'https://jav.guru/741640/start-402-ended-up-having-a-one-night-stand-after-drinks-with-a-colleague-i-dislike-his-cock-fits-so-perfectly-deep-in-the-pussy-that-had-the-best-climax-of-my-life-honjo-suzu/',
     
     browserConfig: {
-      headless: false, // Show browser for debugging
+      headless: true, // Show browser for debugging
       viewport: { width: 1920, height: 1080 },
       ignoreHTTPSErrors: true,
       javaScriptEnabled: true,

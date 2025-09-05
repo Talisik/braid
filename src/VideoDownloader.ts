@@ -822,7 +822,7 @@ export class VideoDownloader {
                 url.includes("redirect")
             ) {
                 this.logger.info(
-                    `🔗 Attempting to click through ad iframe: ${url}`
+                    `Attempting to click through ad iframe: ${url}`
                 );
 
                 try {
@@ -1566,7 +1566,7 @@ export class VideoDownloader {
                             url.includes(".avi")
                         ) {
                             this.logger.info(
-                                `📥 Video file response detected: ${url}`
+                                `Video file response detected: ${url}`
                             );
                             downloadDetected = true;
                             resolve(true);
