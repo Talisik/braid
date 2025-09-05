@@ -449,7 +449,6 @@ export class VideoDownloader {
                         return true;
                     }
 
-                    // Otherwise process results now
                     this.logger.info(
                         `Found video streams with button: ${selector}`
                     );
