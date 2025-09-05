@@ -1,0 +1,61 @@
+# Source files (only ship compiled dist)
+src/
+*.ts
+!*.d.ts
+
+# Development files
+tsconfig.json
+.vscode/
+.cursor/
+
+# Test files
+test/
+tests/
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+
+# Build artifacts
+node_modules/
+coverage/
+.nyc_output/
+
+# Development dependencies
+playwright-report/
+test-results/
+
+# Temporary files
+downloads/
+*.log
+*.tmp
+*.temp
+
+# Example and test files
+usage-example.js
+test-patient.js
+fixed-test.js
+m3u8_downloader.py
+
+# Git files
+.git/
+.gitignore
+
+# IDE files
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Screenshots and media
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.mp4
+*.avi
+*.mov
