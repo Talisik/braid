@@ -47,7 +47,7 @@ async function initializePrivileged(privilegedAPI) {
     
     try {
         // Import Braid modules using privileged require
-        const braidModule = await privilegedAPIs.require('braid-video-downloader');
+        const braidModule = await privilegedAPIs.require('braid');
         VideoDownloader = braidModule.VideoDownloader;
         M3U8Processor = braidModule.M3U8Processor;
         

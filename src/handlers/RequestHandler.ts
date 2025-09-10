@@ -17,7 +17,7 @@ export class RequestHandler {
         const url = request.url();
         const urlLower = url.toLowerCase();
 
-        // Only process video-related URLs from allowed domains
+        // Only process video-related URLs f    rom allowed domains
         if (this.isVideoRelatedUrl(urlLower)) {
             this.capturedHeaders = {
                 "User-Agent": request.headers()["user-agent"] || "",

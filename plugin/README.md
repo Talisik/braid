@@ -2,6 +2,38 @@
 
 A lightweight, privileged plugin that provides video downloading capabilities to Electron applications using the Braid video downloader package.
 
+## 📦 **Installation**
+
+### For Electron App Developers
+
+1. **Install Braid from GitHub:**
+   ```bash
+   npm install git+https://github.com/Talisik/braid.git
+   ```
+
+2. **Plugin files are automatically available:**
+   ```
+   node_modules/braid/plugin/
+   ├── plugin.js           # Main plugin file
+   ├── manifest.json       # Plugin manifest
+   ├── progress-handler.js # Progress handling examples
+   └── example-host-app.js # Integration example
+   ```
+
+3. **Use in your Electron app:**
+   ```javascript
+   // In your main process
+   const pluginPath = path.join(__dirname, 'node_modules', 'braid', 'plugin', 'plugin.js');
+   const plugin = await import(pluginPath);
+   ```
+
+### What Happens During Installation
+
+- ✅ **Dependencies installed** (Playwright, FFmpeg, etc.)
+- ✅ **TypeScript compiled** to `dist/` (automatic via `prepare` script)
+- ✅ **Firefox browser installed** for Playwright
+- ✅ **Plugin files ready** in `node_modules/braid/plugin/`
+
 ## 🔌 **Plugin Architecture**
 
 This plugin uses the **privileged plugin pattern** instead of bundling the entire Braid codebase:

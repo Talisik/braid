@@ -555,7 +555,9 @@ class ExampleElectronApp {
         
         // Load Braid plugin
         try {
-            await this.loadPlugin(path.join(__dirname, '../plugin'));
+            // When installed via npm, plugin is in node_modules
+            const pluginPath = path.join(__dirname, 'node_modules', 'braid', 'plugin');
+            await this.loadPlugin(pluginPath);
             console.log('Braid plugin loaded successfully');
         } catch (error) {
             console.error('Failed to load Braid plugin:', error);
