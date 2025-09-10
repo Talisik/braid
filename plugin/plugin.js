@@ -216,7 +216,14 @@ async function downloadVideo(url, options = {}) {
         const success = await downloader.main();
         
         if (success) {
+            // Clear any progress intervals
+            const download = activeDownloads.get(downloadId);
+            if (download && download.progressInterval) {
+                clearInterval(download.progressInterval);
+            }
+            
             updateDownloadStatus(downloadId, 'completed');
+            updateDownloadProgress(downloadId, { percentage: 100, phase: 'completed' });
             showNotification('Download Completed', `Video downloaded successfully: ${url}`);
             
             // Update host app's download store if available
@@ -227,6 +234,11 @@ async function downloadVideo(url, options = {}) {
                 });
             }
         } else {
+            // Clear any progress intervals
+            const download = activeDownloads.get(downloadId);
+            if (download && download.progressInterval) {
+                clearInterval(download.progressInterval);
+            }
             updateDownloadStatus(downloadId, 'failed');
             showNotification('Download Failed', `Failed to download video: ${url}`);
         }
@@ -321,11 +333,53 @@ async function downloadM3U8(url, headers = {}, filename = null) {
  * Set up progress tracking for video downloads
  */
 function setupDownloadProgressTracking(downloadId, downloader) {
-    // Note: This depends on the VideoDownloader having progress events
-    // You might need to modify VideoDownloader to emit progress events
+    // Since VideoDownloader doesn't emit events yet, we'll simulate progress
+    // based on typical download phases
     
+    let progressInterval;
+    let currentProgress = 0;
+    
+    // Simulate initial processing phase
+    setTimeout(() => {
+        updateDownloadStatus(downloadId, 'analyzing');
+        updateDownloadProgress(downloadId, { percentage: 10, phase: 'analyzing' });
+    }, 1000);
+    
+    // Simulate finding streams
+    setTimeout(() => {
+        updateDownloadStatus(downloadId, 'processing');
+        updateDownloadProgress(downloadId, { percentage: 25, phase: 'finding streams' });
+    }, 3000);
+    
+    // Start simulated download progress after 5 seconds
+    setTimeout(() => {
+        updateDownloadStatus(downloadId, 'downloading');
+        currentProgress = 30;
+        
+        progressInterval = setInterval(() => {
+            if (currentProgress < 95) {
+                currentProgress += Math.random() * 10; // Random progress increments
+                updateDownloadProgress(downloadId, { 
+                    percentage: Math.min(currentProgress, 95),
+                    phase: 'downloading segments'
+                });
+            }
+        }, 2000);
+        
+        // Store interval so we can clear it when download completes
+        const download = activeDownloads.get(downloadId);
+        if (download) {
+            download.progressInterval = progressInterval;
+        }
+    }, 5000);
+    
+    // Real event handling (if VideoDownloader gets updated to emit events)
     if (downloader.on) {
         downloader.on('progress', (progress) => {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
             updateDownloadProgress(downloadId, progress);
         });
         
@@ -334,6 +388,10 @@ function setupDownloadProgressTracking(downloadId, downloader) {
         });
         
         downloader.on('segment-downloaded', (segmentInfo) => {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
             updateDownloadProgress(downloadId, {
                 segments: segmentInfo.downloaded,
                 total: segmentInfo.total,

@@ -444,6 +444,27 @@ class ExampleElectronApp {
                     .progress-bar { width: 100%; height: 20px; background: #f0f0f0; border-radius: 10px; overflow: hidden; }
                     .progress-fill { height: 100%; background: #4CAF50; transition: width 0.3s; }
                     button { padding: 8px 16px; margin: 5px; cursor: pointer; }
+                    
+                    /* Spinner animation */
+                    .spinner {
+                        width: 20px;
+                        height: 20px;
+                        border: 2px solid #f3f3f3;
+                        border-top: 2px solid #2196F3;
+                        border-radius: 50%;
+                        animation: spin 1s linear infinite;
+                    }
+                    
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                    
+                    /* Status indicators */
+                    .status-processing { background-color: #e3f2fd !important; color: #1976d2; }
+                    .status-downloading { background-color: #e8f5e8 !important; color: #388e3c; }
+                    .status-completed { background-color: #e8f5e8 !important; color: #2e7d32; }
+                    .status-error { background-color: #ffebee !important; color: #c62828; }
                 </style>
             </head>
             <body>
@@ -458,6 +479,9 @@ class ExampleElectronApp {
                             <h3>Quick Download</h3>
                             <input type="text" id="urlInput" placeholder="Enter video URL..." style="width: 300px; padding: 8px;" />
                             <button onclick="downloadVideo()">Download</button>
+                            
+                            <!-- Processing Status -->
+                            <div id="processing-status" style="display: none;"></div>
                         </div>
                         <div>
                             <h3>Active Downloads</h3>
@@ -474,13 +498,58 @@ class ExampleElectronApp {
                         const url = document.getElementById('urlInput').value;
                         if (!url) return;
                         
+                        // Show processing status immediately
+                        showProcessingStatus(url);
+                        
                         try {
                             const result = await ipcRenderer.invoke('plugin:braid-video-downloader:braid.downloadVideo', url);
                             console.log('Download result:', result);
                             updateDownloadsList();
+                            
+                            // Clear URL input on successful start
+                            document.getElementById('urlInput').value = '';
                         } catch (error) {
                             console.error('Download failed:', error);
-                            alert('Download failed: ' + error.message);
+                            showErrorStatus('Download failed: ' + error.message);
+                            hideProcessingStatus();
+                        }
+                    }
+                    
+                    function showProcessingStatus(url) {
+                        const statusDiv = document.getElementById('processing-status');
+                        if (statusDiv) {
+                            statusDiv.innerHTML = \`
+                                <div style="padding: 10px; background: #e3f2fd; border-radius: 5px; margin: 10px 0;">
+                                    <div style="display: flex; align-items: center;">
+                                        <div class="spinner" style="margin-right: 10px;"></div>
+                                        <div>
+                                            <strong>Processing...</strong><br />
+                                            <small>Analyzing: \${url}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            \`;
+                            statusDiv.style.display = 'block';
+                        }
+                    }
+                    
+                    function showErrorStatus(message) {
+                        const statusDiv = document.getElementById('processing-status');
+                        if (statusDiv) {
+                            statusDiv.innerHTML = \`
+                                <div style="padding: 10px; background: #ffebee; border-radius: 5px; margin: 10px 0; color: #c62828;">
+                                    <strong>Error:</strong> \${message}
+                                </div>
+                            \`;
+                            // Auto-hide after 5 seconds
+                            setTimeout(() => hideProcessingStatus(), 5000);
+                        }
+                    }
+                    
+                    function hideProcessingStatus() {
+                        const statusDiv = document.getElementById('processing-status');
+                        if (statusDiv) {
+                            statusDiv.style.display = 'none';
                         }
                     }
                     
@@ -489,17 +558,36 @@ class ExampleElectronApp {
                             const downloads = await ipcRenderer.invoke('plugin:braid-video-downloader:braid.getActiveDownloads');
                             const listContainer = document.getElementById('downloads-list');
                             
-                            listContainer.innerHTML = downloads.map(download => \`
-                                <div class="download-item" data-id="\${download.id}">
-                                    <div><strong>URL:</strong> \${download.url}</div>
-                                    <div><strong>Status:</strong> \${download.status}</div>
-                                    <div class="progress-bar">
-                                        <div class="progress-fill" style="width: \${download.progress?.percentage || 0}%"></div>
+                            listContainer.innerHTML = downloads.map(download => {
+                                const statusClass = \`status-\${download.status}\`;
+                                const isProcessing = ['starting', 'processing', 'analyzing'].includes(download.status);
+                                const isDownloading = download.status === 'downloading';
+                                const isCompleted = download.status === 'completed';
+                                const hasError = download.status === 'error' || download.error;
+                                
+                                return \`
+                                <div class="download-item \${statusClass}" data-id="\${download.id}">
+                                    <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                                        \${isProcessing ? '<div class="spinner" style="margin-right: 10px;"></div>' : ''}
+                                        \${isDownloading ? '<div style="margin-right: 10px; color: #4CAF50;">⬇️</div>' : ''}
+                                        \${isCompleted ? '<div style="margin-right: 10px; color: #4CAF50;">✅</div>' : ''}
+                                        \${hasError ? '<div style="margin-right: 10px; color: #f44336;">❌</div>' : ''}
+                                        <div>
+                                            <strong>Status:</strong> \${download.status.toUpperCase()}
+                                            \${hasError ? \` - \${download.error}\` : ''}
+                                        </div>
                                     </div>
-                                    <div>\${download.progress?.segments || 0}/\${download.progress?.total || 0} segments</div>
-                                    <button onclick="cancelDownload('\${download.id}')">Cancel</button>
+                                    <div><strong>URL:</strong> \${download.url}</div>
+                                    \${isDownloading || isCompleted ? \`
+                                        <div class="progress-bar">
+                                            <div class="progress-fill" style="width: \${download.progress?.percentage || 0}%"></div>
+                                        </div>
+                                        <div>\${download.progress?.segments || 0}/\${download.progress?.total || 0} segments</div>
+                                    \` : ''}
+                                    \${!isCompleted ? \`<button onclick="cancelDownload('\${download.id}')">Cancel</button>\` : ''}
                                 </div>
-                            \`).join('');
+                            \`;
+                            }).join('');
                         } catch (error) {
                             console.error('Failed to update downloads list:', error);
                         }
@@ -518,12 +606,34 @@ class ExampleElectronApp {
                     ipcRenderer.on('plugin-progress-update', (event, data) => {
                         console.log('Progress update:', data);
                         updateDownloadsList();
+                        hideProcessingStatus(); // Hide initial processing status when real progress starts
                     });
                     
                     ipcRenderer.on('plugin-status-update', (event, data) => {
                         console.log('Status update:', data);
                         updateDownloadsList();
+                        
+                        // Hide processing status when download starts or completes
+                        if (['downloading', 'completed', 'error'].includes(data.status)) {
+                            hideProcessingStatus();
+                        }
                     });
+                    
+                    // Auto-refresh downloads list every 2 seconds when there are active downloads
+                    setInterval(async () => {
+                        try {
+                            const downloads = await ipcRenderer.invoke('plugin:braid-video-downloader:braid.getActiveDownloads');
+                            const hasActiveDownloads = downloads.some(d => 
+                                ['starting', 'processing', 'analyzing', 'downloading'].includes(d.status)
+                            );
+                            
+                            if (hasActiveDownloads) {
+                                updateDownloadsList();
+                            }
+                        } catch (error) {
+                            // Silently ignore errors during auto-refresh
+                        }
+                    }, 2000);
                     
                     ipcRenderer.on('add-plugin-panel', (event, data) => {
                         console.log('Adding plugin panel:', data);
