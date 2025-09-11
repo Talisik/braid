@@ -5,10 +5,11 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
-    "build": "tsc",
-    "download": "npm run build && node dist/download-test.js",
+    "build": "echo 'Building WeebDL...' && tsc && echo 'Build completed successfully!'",
+    "download": "npm run build && echo 'Starting WeebDL anime downloader...' && node dist/download-test.js",
     "dev": "tsc --watch",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist && echo 'Cleaned build files'",
+    "postinstall": "echo 'WeebDL dependencies installed. Run: npm run download'"
   },
   "keywords": [
     "firefox",

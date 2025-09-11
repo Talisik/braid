@@ -1,5 +1,5 @@
 import { spawn } from 'child_process';
-import { writeFileSync, unlinkSync, rmdirSync } from 'fs';
+import { writeFileSync, unlinkSync, rmSync } from 'fs';
 import { dirname } from 'path';
 
 export class FFmpegConverter {
@@ -100,25 +100,31 @@ export class FFmpegConverter {
   }
 
   /**
-   * Cleanup temporary segment files
+   * Cleanup temporary segment files and directory
    */
   public cleanupSegments(segmentFiles: string[]): void {
     console.log('Cleaning up temporary files...');
     
-    for (const file of segmentFiles) {
-      try {
-        unlinkSync(file);
-      } catch (error) {
-        // Ignore cleanup errors
-      }
+    if (segmentFiles.length === 0) {
+      return;
     }
 
-    // Remove segment directory
+    // Remove entire temporary segment directory (more efficient for temp dirs)
     try {
       const segmentDir = dirname(segmentFiles[0]);
-      rmdirSync(segmentDir);
+      rmSync(segmentDir, { recursive: true, force: true });
+      console.log(`Cleaned up temp directory: ${segmentDir}`);
     } catch (error) {
-      // Ignore cleanup errors
+      console.warn(`Warning: Could not clean up temp directory: ${error}`);
+      
+      // Fallback: delete individual files
+      for (const file of segmentFiles) {
+        try {
+          unlinkSync(file);
+        } catch (fileError) {
+          // Ignore individual file cleanup errors
+        }
+      }
     }
   }
 }

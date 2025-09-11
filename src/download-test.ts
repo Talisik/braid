@@ -87,8 +87,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   console.log('Starting anime download tests...');
   testAnimeDownload()
     .then(() => {
-      console.log('\nStarting custom download test...');
-      return testCustomDownload();
+      console.log('\nDownload test completed. Exiting...');
+      process.exit(0);
     })
-    .catch(console.error);
+    .catch((error) => {
+      console.error('Download test failed:', error);
+      process.exit(1);
+    });
 }

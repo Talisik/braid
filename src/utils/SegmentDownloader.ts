@@ -1,5 +1,6 @@
 import { join, dirname } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import { tmpdir } from 'os';
 import { CurlDownloader } from './CurlDownloader.js';
 
 export interface SegmentDownloadConfig {
@@ -21,15 +22,26 @@ export class SegmentDownloader {
   }
 
   /**
+   * Set referer header for segment downloads
+   */
+  public setReferer(refererUrl: string): void {
+    this.downloader.setReferer(refererUrl);
+  }
+
+  /**
    * Download video segments with progress tracking and persistent retry
    */
   public async downloadSegments(segments: string[], outputFileName: string, outputDir: string): Promise<string[]> {
     console.log(`\nDownloading ${segments.length} segments...`);
     
-    const segmentDir = join(outputDir, `${outputFileName}_segments`);
+    // Create temporary directory for segments
+    const tempDir = tmpdir();
+    const segmentDir = join(tempDir, `weebdl_${outputFileName}_${Date.now()}_segments`);
     if (!existsSync(segmentDir)) {
       mkdirSync(segmentDir, { recursive: true });
     }
+    
+    console.log(`Storing segments in temp directory: ${segmentDir}`);
 
     const segmentFiles: string[] = [];
     let completed = 0;

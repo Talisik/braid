@@ -1,5 +1,6 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { readFileSync, statSync } from 'fs';
 
 const execAsync = promisify(exec);
 
@@ -12,13 +13,23 @@ export class CurlDownloader {
       '"Accept: */*"',
       '"Accept-Language: en-US,en;q=0.5"',
       '"Accept-Encoding: gzip, deflate, br"',
-      '"Origin: https://9animetv.to"',
-      '"Referer: https://9animetv.to/"',
+      '"Cache-Control: no-cache"',
+      '"Pragma: no-cache"',
       '"Connection: keep-alive"',
       '"Sec-Fetch-Dest: empty"',
       '"Sec-Fetch-Mode: cors"',
       '"Sec-Fetch-Site: cross-site"'
     ];
+  }
+
+  /**
+   * Set referer header for segment downloads
+   */
+  public setReferer(refererUrl: string): void {
+    // Remove existing referer if present
+    this.baseHeaders = this.baseHeaders.filter(h => !h.includes('Referer:'));
+    // Add new referer
+    this.baseHeaders.push(`"Referer: ${refererUrl}"`);
   }
 
   /**
@@ -52,6 +63,9 @@ export class CurlDownloader {
       '-s', // Silent mode
       '-L', // Follow redirects
       '--compressed', // Accept compressed responses
+      '--max-redirs', '5', // Limit redirects
+      '--connect-timeout', '30', // Connection timeout
+      '--max-time', '60', // Total timeout
       ...this.baseHeaders.map(h => `-H ${h}`),
       '-o', `"${outputPath}"`,
       `"${url}"`
@@ -61,6 +75,36 @@ export class CurlDownloader {
     
     if (stderr && !stderr.includes('Warning:')) {
       throw new Error(`Curl download error: ${stderr}`);
+    }
+
+    // Validate downloaded content
+    this.validateDownloadedFile(outputPath);
+  }
+
+  /**
+   * Validate that downloaded file is actually video content, not HTML
+   */
+  private validateDownloadedFile(filePath: string): void {
+    try {
+      const stats = statSync(filePath);
+      
+      // Check file size (should be more than a few KB for video segments)
+      if (stats.size < 1000) {
+        throw new Error(`Downloaded file too small (${stats.size} bytes) - likely an error page`);
+      }
+
+      // Read first few bytes to check if it's HTML
+      const buffer = readFileSync(filePath, { encoding: 'utf8', flag: 'r' });
+      const firstChunk = buffer.substring(0, 100).toLowerCase();
+      
+      if (firstChunk.includes('<!doctype html') || 
+          firstChunk.includes('<html') || 
+          firstChunk.includes('cloudflare') ||
+          firstChunk.includes('access denied')) {
+        throw new Error('Downloaded HTML content instead of video segment - likely blocked or redirected');
+      }
+    } catch (error) {
+      throw new Error(`File validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

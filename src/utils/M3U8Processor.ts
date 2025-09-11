@@ -60,6 +60,9 @@ export class M3U8Processor {
         throw new Error('No video segments found in M3U8');
       }
 
+      // Set proper referer for segment downloads
+      this.downloader.setReferer(bestStreamUrl);
+
       // Download segments with persistent retry
       const segmentFiles = await this.downloader.downloadSegments(segments, outputFileName, this.config.outputDir!);
 
