@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { M3U8Parser } from './M3U8Parser.js';
-import { SegmentDownloader } from './SegmentDownloader.js';
-import { FFmpegConverter } from './FFmpegConverter.js';
+import { SegmentDownloader } from '../downloaders/SegmentDownloader.js';
+import { FFmpegConverter } from '../converters/FFmpegConverter.js';
 
 export interface M3U8ProcessorConfig {
   outputDir?: string;

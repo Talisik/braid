@@ -1,4 +1,4 @@
-import { WeebDL } from './index.js';
+import { WeebDL } from './WeebDL.js';
 
 async function testAnimeDownload() {
   console.log('=== Anime Download Test ===');
@@ -62,7 +62,7 @@ async function testCustomDownload() {
     const videoStreams = streamFilter.filterVideoStreams(requests);
     
     console.log(`\nFound ${videoStreams.length} video streams:`);
-    videoStreams.forEach((stream, i) => {
+    videoStreams.forEach((stream: any, i: number) => {
       console.log(`${i + 1}. ${stream.isMainVideo ? '[MAIN]' : '[OTHER]'} ${stream.quality}p - ${stream.source}`);
       console.log(`   ${stream.url.substring(0, 100)}...`);
     });

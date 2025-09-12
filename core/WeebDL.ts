@@ -1,7 +1,7 @@
-import { FirefoxBrowser } from './browsers/FirefoxBrowser.js';
-import { M3U8Processor } from './utils/M3U8Processor.js';
-import { StreamFilter } from './utils/StreamFilter.js';
-import { BrowserConfig } from './types/index.js';
+import { FirefoxBrowser } from '../browsers/FirefoxBrowser.js';
+import { M3U8Processor } from '../parsers/M3U8Processor.js';
+import { StreamFilter } from '../filters/StreamFilter.js';
+import { BrowserConfig } from '../types/index.js';
 
 export class WeebDL {
   private browser: FirefoxBrowser;
@@ -110,8 +110,8 @@ export class WeebDL {
 }
 
 // Export types and classes for external use
-export { FirefoxBrowser } from './browsers/FirefoxBrowser.js';
-export { NetworkMonitor } from './monitors/NetworkMonitor.js';
-export { M3U8Processor } from './utils/M3U8Processor.js';
-export { StreamFilter } from './utils/StreamFilter.js';
-export * from './types/index.js';
+export { FirefoxBrowser } from '../browsers/FirefoxBrowser.js';
+export { NetworkMonitor } from '../monitors/NetworkMonitor.js';
+export { M3U8Processor } from '../parsers/M3U8Processor.js';
+export { StreamFilter } from '../filters/StreamFilter.js';
+export * from '../types/index.js';

@@ -1,4 +1,4 @@
-import { CurlDownloader } from './CurlDownloader.js';
+import { CurlDownloader } from '../downloaders/CurlDownloader.js';
 
 export interface StreamQuality {
   url: string;

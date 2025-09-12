@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "echo 'Building WeebDL...' && tsc && echo 'Build completed successfully!'",
-    "download": "npm run build && echo 'Starting WeebDL anime downloader...' && node dist/download-test.js",
+    "download": "npm run build && echo 'Starting WeebDL anime downloader...' && node dist/core/download-test.js",
     "dev": "tsc --watch",
     "clean": "rm -rf dist && echo 'Cleaned build files'",
     "postinstall": "echo 'WeebDL dependencies installed. Run: npm run download'"
