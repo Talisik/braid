@@ -1,0 +1,36 @@
+{
+  "name": "f2moviesdl",
+  "version": "1.0.0",
+  "description": "Enhanced F2Movies video downloader with automatic play button detection and advanced stream monitoring",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "echo 'Building F2MoviesDL...' && tsc && echo 'Build completed successfully!'",
+    "test": "npm run build && echo 'Starting Enhanced F2MoviesDL tests...' && node dist/enhanced-download-test.js",
+    "test:download": "npm run build && node dist/enhanced-download-test.js download",
+    "test:streams": "npm run build && node dist/enhanced-download-test.js streams",
+    "test:play": "npm run build && node dist/enhanced-download-test.js play",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist && echo 'Cleaned build files'",
+    "postinstall": "echo 'Enhanced F2MoviesDL dependencies installed. Run: npm test'"
+  },
+  "keywords": [
+    "firefox",
+    "network-monitoring",
+    "f2movies-downloader",
+    "movie-downloader",
+    "playwright",
+    "video-streams",
+    "play-button-detection",
+    "enhanced-automation"
+  ],
+  "author": "Potat0C0rn3r",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0"
+  }
+}
