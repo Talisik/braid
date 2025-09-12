@@ -1,4 +1,4 @@
-import { WeebDL } from './WeebDL.js';
+import { WeebDL } from './core/WeebDL.js';
 
 async function testAnimeDownload() {
   console.log('=== Anime Download Test ===');
